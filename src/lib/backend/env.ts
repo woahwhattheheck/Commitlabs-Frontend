@@ -69,6 +69,7 @@ const envSchema = z.object({
   COMMITLABS_FEATURE_ANALYTICS_USER: z.string().optional(),
   COMMITLABS_FEATURE_MARKETPLACE: z.string().optional(),
   COMMITLABS_FEATURE_FLAGS_JSON: z.string().optional(),
+  COMMITLABS_SUPPORTED_CONFIG_JSON: z.string().optional(),
 
   // Contract version / JSON overrides
   NEXT_PUBLIC_CONTRACTS_JSON: z.string().optional(),
