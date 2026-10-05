@@ -67,7 +67,9 @@ const envSchema = z.object({
   // Feature flag toggles
   COMMITLABS_ENABLE_CHAIN_WRITES: z.string().optional(),
   COMMITLABS_FEATURE_ANALYTICS_USER: z.string().optional(),
+  COMMITLABS_FEATURE_ANALYTICS_PROTOCOL: z.string().optional(),
   COMMITLABS_FEATURE_MARKETPLACE: z.string().optional(),
+  COMMITLABS_FEATURE_MARKETPLACE_MOCK_DATA: z.string().optional(),
   COMMITLABS_FEATURE_FLAGS_JSON: z.string().optional(),
   COMMITLABS_SUPPORTED_CONFIG_JSON: z.string().optional(),
 
