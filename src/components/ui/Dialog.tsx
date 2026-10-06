@@ -9,6 +9,7 @@ export interface DialogProps {
   labelledById?: string;
   describedById?: string;
   closeOnEscape?: boolean;
+  closeOnBackdrop?: boolean;
   initialFocusRef?: React.RefObject<HTMLElement | null>;
   children: React.ReactNode;
   className?: string;
@@ -21,6 +22,7 @@ export function Dialog({
   labelledById,
   describedById,
   closeOnEscape = true,
+  closeOnBackdrop = true,
   initialFocusRef,
   children,
   className = '',
@@ -136,7 +138,7 @@ export function Dialog({
   if (!isOpen || !mounted) return null;
 
   const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.target === event.currentTarget) {
+    if (closeOnBackdrop && event.target === event.currentTarget) {
       onClose();
     }
   };
