@@ -10,6 +10,10 @@ const RESUME_DRAFT_SOURCE = fs.readFileSync(
   path.resolve(__dirname, '../../src/components/create/ResumeDraftPrompt.tsx'),
   'utf-8',
 );
+const CREATE_PAGE_SOURCE = fs.readFileSync(
+  path.resolve(__dirname, '../../src/app/create/page.tsx'),
+  'utf-8',
+);
 
 describe('Dialog backdrop dismissal', () => {
   it('lets destructive dialogs ignore backdrop clicks without disabling Escape', () => {
@@ -20,5 +24,15 @@ describe('Dialog backdrop dismissal', () => {
     );
     expect(RESUME_DRAFT_SOURCE).toMatch(/closeOnBackdrop=\{false\}/);
     expect(RESUME_DRAFT_SOURCE).toMatch(/closeOnEscape=\{!pendingAction\}/);
+  });
+
+  it('wires the named-draft lifecycle through the create page', () => {
+    expect(CREATE_PAGE_SOURCE).toMatch(/allDrafts, saveDraft, clearDraft, clearAllDrafts, resumeDraft/);
+    expect(CREATE_PAGE_SOURCE).toMatch(/activeDraftIdRef = useRef<string \| null>\(null\)/);
+    expect(CREATE_PAGE_SOURCE).toMatch(/saveDraft\(currentDraft, activeDraftIdRef\.current\)/);
+    expect(CREATE_PAGE_SOURCE).toMatch(/drafts=\{allDrafts\}/);
+    expect(CREATE_PAGE_SOURCE).toMatch(/onDeleteDraft=\{handleDeleteDraft\}/);
+    expect(CREATE_PAGE_SOURCE).toMatch(/clearAllDrafts\(\)/);
+    expect(CREATE_PAGE_SOURCE).not.toContain("};entId.split");
   });
 });
