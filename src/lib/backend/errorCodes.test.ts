@@ -42,4 +42,15 @@ describe('ERROR_CODE_REGISTRY', () => {
     expect(result.valid).toBe(true);
     expect(result.duplicates).toHaveLength(0);
   });
+
+  it('detects duplicate code values under distinct registry keys', () => {
+    const result = validateErrorCodeRegistry({
+      ...ERROR_CODE_REGISTRY,
+      BAD_REQUEST_COPY: { ...ERROR_CODE_REGISTRY.BAD_REQUEST },
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.duplicates).toEqual(['BAD_REQUEST']);
+    expect(result.errors).toContain('Duplicate error codes found: BAD_REQUEST');
+  });
 });
