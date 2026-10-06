@@ -15,7 +15,7 @@ export interface MarketplaceCardProps {
   forSale?: boolean;
   compareSelected?: boolean;
   compareDisabled?: boolean;
-  onCompareToggle?: () => void;
+  onCompareToggle?: (id: string) => void;
   onView?: (id: string) => void;
 }
 
@@ -94,7 +94,7 @@ const MarketplaceCardComponent = memo(function MarketplaceCard({
                     ? 'border-white/10 bg-white/[0.02] text-white/30 cursor-not-allowed'
                     : 'border-white/15 bg-white/[0.04] text-white/70 hover:bg-white/[0.08]'
               }`}
-              onClick={onCompareToggle}
+              onClick={() => onCompareToggle(id)}
               disabled={compareDisabled && !compareSelected}
               aria-pressed={compareSelected}
             >
