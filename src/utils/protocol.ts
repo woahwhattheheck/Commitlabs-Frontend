@@ -23,23 +23,97 @@ export interface CommitmentLimits {
   earlyExitGracePeriodDays: number;
 }
 
+export type CommitmentTypeId = 'safe' | 'balanced' | 'aggressive';
+
+export interface CommitmentTypeConstants {
+  type: CommitmentTypeId;
+  durationDays: number;
+  maxLossPercent: number | null;
+}
+
 export interface ProtocolConstants {
   protocolVersion: string;
   network: string;
   fees: FeeConstants;
   penalties: PenaltyTier[];
+  commitmentTypes?: CommitmentTypeConstants[];
   commitmentLimits: CommitmentLimits;
   cachedAt: string;
 }
 
 export { ProtocolConstantsSchema, ProtocolConstantsResponseSchema };
 
+function parseCommitmentTypes(value: unknown): CommitmentTypeConstants[] | undefined {
+  if (typeof value !== 'object' || value === null || !('commitmentTypes' in value)) {
+    return undefined;
+  }
+
+  const raw = (value as { commitmentTypes?: unknown }).commitmentTypes;
+  if (!Array.isArray(raw)) {
+    throw new Error('Failed to validate protocol constants response payload: commitmentTypes must be an array');
+  }
+
+  return raw.map((entry, index) => {
+    if (typeof entry !== 'object' || entry === null) {
+      throw new Error(
+        `Failed to validate protocol constants response payload: commitmentTypes.${index} must be an object`,
+      );
+    }
+
+    const item = entry as {
+      type?: unknown;
+      durationDays?: unknown;
+      maxLossPercent?: unknown;
+    };
+
+    if (!['safe', 'balanced', 'aggressive'].includes(String(item.type))) {
+      throw new Error(
+        `Failed to validate protocol constants response payload: commitmentTypes.${index}.type is invalid`,
+      );
+    }
+    if (
+      typeof item.durationDays !== 'number' ||
+      !Number.isInteger(item.durationDays) ||
+      item.durationDays <= 0
+    ) {
+      throw new Error(
+        `Failed to validate protocol constants response payload: commitmentTypes.${index}.durationDays is invalid`,
+      );
+    }
+    if (
+      item.maxLossPercent !== null &&
+      (typeof item.maxLossPercent !== 'number' ||
+        !Number.isFinite(item.maxLossPercent) ||
+        item.maxLossPercent < 0 ||
+        item.maxLossPercent > 100)
+    ) {
+      throw new Error(
+        `Failed to validate protocol constants response payload: commitmentTypes.${index}.maxLossPercent is invalid`,
+      );
+    }
+
+    return {
+      type: item.type as CommitmentTypeId,
+      durationDays: item.durationDays,
+      maxLossPercent: item.maxLossPercent as number | null,
+    };
+  });
+}
+
+function payloadData(json: unknown): unknown {
+  if (
+    typeof json === 'object' &&
+    json !== null &&
+    'success' in json &&
+    'data' in json
+  ) {
+    return (json as { data: unknown }).data;
+  }
+  return json;
+}
+
 /**
  * Fetches and validates protocol constants from the API endpoint.
- *
- * @param endpoint Optional custom endpoint URL for protocol constants.
- * @returns Validated protocol constants domain object.
- * @throws Error when HTTP request is not OK or response body fails schema validation.
  */
 export async function fetchProtocolConstants(
   endpoint = '/api/protocol/constants',
@@ -51,15 +125,22 @@ export async function fetchProtocolConstants(
   }
 
   const json: unknown = await response.json();
+  const extraCommitmentTypes = parseCommitmentTypes(payloadData(json));
 
   const envelopedParsed = ProtocolConstantsResponseSchema.safeParse(json);
   if (envelopedParsed.success) {
-    return envelopedParsed.data.data;
+    return {
+      ...envelopedParsed.data.data,
+      commitmentTypes: extraCommitmentTypes,
+    };
   }
 
   const directParsed = ProtocolConstantsSchema.safeParse(json);
   if (directParsed.success) {
-    return directParsed.data;
+    return {
+      ...directParsed.data,
+      commitmentTypes: extraCommitmentTypes,
+    };
   }
 
   const isEnvelopedShape =
@@ -76,9 +157,6 @@ export async function fetchProtocolConstants(
 
 /**
  * Extracts and normalizes the early exit grace period duration in days.
- *
- * @param constants Protocol constants object or null/undefined if unavailable.
- * @returns Non-negative integer representing the grace period days, defaulting to 0.
  */
 export function getEarlyExitGracePeriodDays(
   constants: ProtocolConstants | null | undefined,
