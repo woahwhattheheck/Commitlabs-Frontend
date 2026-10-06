@@ -90,6 +90,47 @@ describe('fetchProtocolConstants', () => {
     expect(constants).toEqual(protocolConstantsFixture);
   });
 
+  it('preserves commitment-type tuning returned by the endpoint', async () => {
+    const configuredFixture: ProtocolConstants = {
+      ...protocolConstantsFixture,
+      penalties: [
+        {
+          type: 'safe',
+          earlyExitPenaltyPercent: 2,
+          description: 'Safe commitment early-exit penalty.',
+        },
+        {
+          type: 'balanced',
+          earlyExitPenaltyPercent: 3,
+          description: 'Balanced commitment early-exit penalty.',
+        },
+        {
+          type: 'aggressive',
+          earlyExitPenaltyPercent: 5,
+          description: 'Aggressive commitment early-exit penalty.',
+        },
+      ],
+      commitmentTypes: [
+        { type: 'safe', durationDays: 30, maxLossPercent: 2 },
+        { type: 'balanced', durationDays: 60, maxLossPercent: 8 },
+        { type: 'aggressive', durationDays: 90, maxLossPercent: null },
+      ],
+    };
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: vi.fn().mockResolvedValueOnce({
+        success: true,
+        data: configuredFixture,
+      }),
+    });
+
+    const constants = await fetchProtocolConstants();
+
+    expect(constants.commitmentTypes).toEqual(configuredFixture.commitmentTypes);
+    expect(constants.penalties).toEqual(configuredFixture.penalties);
+  });
+
   it('requests protocol constants with custom endpoint when provided', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
