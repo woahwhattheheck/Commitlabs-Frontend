@@ -96,6 +96,7 @@ export default function ResumeDraftPrompt({
       labelledById="resume-draft-title"
       describedById="resume-draft-description"
       closeOnEscape={!pendingAction}
+      closeOnBackdrop={false}
       initialFocusRef={dismissButtonRef}
       className="mx-4 w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14] text-white shadow-2xl"
       backdropClassName="bg-black/75 p-4 backdrop-blur-sm"
