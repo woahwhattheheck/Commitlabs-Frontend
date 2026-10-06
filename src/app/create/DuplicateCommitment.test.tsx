@@ -24,7 +24,14 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/hooks/useWallet', () => ({ useWallet: () => ({ address: '0xABCD' }) }));
 vi.mock('@/hooks/useDraftPersistence', () => ({
-  useDraftPersistence: () => ({ draft: null, saveDraft: vi.fn(), clearDraft: vi.fn() }),
+  useDraftPersistence: () => ({
+    draft: null,
+    allDrafts: [],
+    saveDraft: vi.fn(),
+    clearDraft: vi.fn(),
+    clearAllDrafts: vi.fn(),
+    resumeDraft: vi.fn(),
+  }),
 }));
 vi.mock('@/hooks/useGuidedTour', () => ({
   useGuidedTour: () => ({
