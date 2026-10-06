@@ -277,12 +277,14 @@ export function getErrorCodesByStatus(): Record<number, ErrorCodeDefinition[]> {
  * the same `.code` string represent a real, detectable duplicate.
  * Call this in tests to enforce registry integrity.
  */
-export function validateErrorCodeRegistry(): {
+export function validateErrorCodeRegistry(
+  registry: Record<string, ErrorCodeDefinition> = ERROR_CODE_REGISTRY,
+): {
   valid: boolean;
   duplicates: string[];
   errors: string[];
 } {
-  const definitions = Object.values(ERROR_CODE_REGISTRY);
+  const definitions = Object.values(registry);
   const codeValues = definitions.map((def) => def.code);
   const seen = new Set<string>();
   const duplicateSet = new Set<string>();
@@ -303,14 +305,14 @@ export function validateErrorCodeRegistry(): {
   }
 
   // Check for empty code strings
-  Object.values(ERROR_CODE_REGISTRY).forEach((def) => {
+  Object.values(registry).forEach((def) => {
     if (!def.code || def.code.trim() === '') {
       errors.push(`Empty error code found`);
     }
   });
 
   // Check for required fields in each definition
-  Object.entries(ERROR_CODE_REGISTRY).forEach(([key, def]) => {
+  Object.entries(registry).forEach(([key, def]) => {
     if (!def.code) errors.push(`Missing 'code' field in ${key}`);
     if (!def.meaning) errors.push(`Missing 'meaning' field in ${key}`);
     if (!def.clientHandling) errors.push(`Missing 'clientHandling' field in ${key}`);
