@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { validateSupportedAsset, validateStellarAddress, SUPPORTED_ASSETS } from './validation';
+import {
+  MAX_COMMITMENT_ID_LENGTH,
+  STELLAR_PUBLIC_KEY_REGEX,
+  SUPPORTED_ASSETS,
+  validateCommitmentId,
+  validateStellarAddress,
+  validateSupportedAsset,
+} from './validation';
 import { ValidationError } from './errors';
 
 const VALID_SAMPLE_ADDRESS = 'GABQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQHGPC';
@@ -67,6 +74,41 @@ describe('validateStellarAddress', () => {
     expect(() => validateStellarAddress(undefined as unknown as string, 'ownerAddress')).toThrow(
       ValidationError,
     );
+  });
+});
+
+describe('validateCommitmentId', () => {
+  it('returns safe commitment ids unchanged', () => {
+    expect(validateCommitmentId('commitment_123', 'Commitment ID')).toBe('commitment_123');
+  });
+
+  it('accepts an id at the maximum configured length', () => {
+    const id = 'a'.repeat(MAX_COMMITMENT_ID_LENGTH);
+    expect(validateCommitmentId(id)).toBe(id);
+  });
+
+  it('rejects missing, oversized, and unsafe commitment ids', () => {
+    const invalid = [
+      undefined,
+      '',
+      'a'.repeat(MAX_COMMITMENT_ID_LENGTH + 1),
+      ' leading-space',
+      'trailing-space ',
+      'path/segment',
+      'path\\segment',
+      'commitment.id',
+    ];
+
+    for (const id of invalid) {
+      expect(() => validateCommitmentId(id, 'Commitment ID')).toThrow(ValidationError);
+    }
+  });
+});
+
+describe('STELLAR_PUBLIC_KEY_REGEX', () => {
+  it('matches the canonical sample and rejects a lowercase address', () => {
+    expect(STELLAR_PUBLIC_KEY_REGEX.test(VALID_SAMPLE_ADDRESS)).toBe(true);
+    expect(STELLAR_PUBLIC_KEY_REGEX.test(VALID_SAMPLE_ADDRESS.toLowerCase())).toBe(false);
   });
 });
 
