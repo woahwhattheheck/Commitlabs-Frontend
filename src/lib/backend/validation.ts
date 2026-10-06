@@ -27,7 +27,7 @@ export type SupportedAsset = (typeof SUPPORTED_ASSETS)[number];
  * @param label  optional human-readable field name used in the error message
  */
 export function validateSupportedAsset(asset: string, label = 'asset'): void {
-  if (!SUPPORTED_ASSETS[].includes(asset.toUpperCase() as SupportedAsset)) {
+  if (!SUPPORTED_ASSETS.includes(asset.toUpperCase() as SupportedAsset)) {
     throw new ValidationError(
       `${label} is not supported. Supported assets: ${SUPPORTED_ASSETS.join(', ')}.`,
       { asset },
