@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useMemo, useState } from 'react';
 import { Shield, TrendingUp, Flame, ArrowRight, ChevronLeft, Info, Zap } from 'lucide-react';
 import WizardStepper from './WizardStepper';
 import styles from './CreateCommitmentStepSelectType.module.css';
@@ -8,6 +8,7 @@ import {
   SCRATCH_OPTION_ID,
   type CommitmentPreset,
 } from './create/commitmentPresets';
+import { fetchProtocolConstants, type ProtocolConstants } from '@/utils/protocol';
 
 interface CommitmentType {
   id: 'safe' | 'balanced' | 'aggressive';
@@ -31,7 +32,7 @@ interface CreateCommitmentStepSelectTypeProps {
   onApplyPreset?: (preset: CommitmentPreset) => void;
 }
 
-const commitmentTypes: CommitmentType[] = [
+const fallbackCommitmentTypes: CommitmentType[] = [
   {
     id: 'safe',
     title: 'Safe Commitment',
@@ -76,6 +77,59 @@ const commitmentTypes: CommitmentType[] = [
   },
 ];
 
+function buildCommitmentTypes(constants: ProtocolConstants | null): CommitmentType[] {
+  if (!constants) return fallbackCommitmentTypes;
+
+  const configuredByType = new Map(
+    (constants.commitmentTypes ?? []).map((profile) => [profile.type, profile] as const),
+  );
+  const penaltyByType = new Map(
+    constants.penalties.map((penalty) => [
+      penalty.type.toLowerCase(),
+      penalty.earlyExitPenaltyPercent,
+    ] as const),
+  );
+
+  return fallbackCommitmentTypes.map((fallback) => {
+    const configured = configuredByType.get(fallback.id);
+    const configuredPenalty = penaltyByType.get(fallback.id);
+
+    if (!configured && configuredPenalty === undefined) {
+      return fallback;
+    }
+
+    const fallbackPenalty = Number(
+      fallback.durationNote.match(/incurs a ([0-9.]+)% penalty/i)?.[1] ?? '0',
+    );
+    const durationDays = configured?.durationDays ?? Number.parseInt(fallback.duration, 10);
+    const penaltyPercent = configuredPenalty ?? fallbackPenalty;
+
+    let maxLoss = fallback.maxLoss;
+    let maxLossNote = fallback.maxLossNote;
+
+    if (configured) {
+      if (configured.maxLossPercent === null) {
+        maxLoss = 'No protection';
+        maxLossNote =
+          'No automatic stop-loss. Your full committed amount is at risk. Only suitable for experienced users.';
+      } else {
+        maxLoss = `${configured.maxLossPercent}%`;
+        maxLossNote =
+          `Your position is automatically closed if losses reach ${configured.maxLossPercent}% of your committed amount.`;
+      }
+    }
+
+    return {
+      ...fallback,
+      duration: `${durationDays} days`,
+      durationNote:
+        `Minimum lock-in: ${durationDays} days. Early exit incurs a ${penaltyPercent}% penalty on your committed amount.`,
+      maxLoss,
+      maxLossNote,
+    };
+  });
+}
+
 export default function CreateCommitmentStepSelectType({
   selectedType,
   onSelectType,
@@ -85,6 +139,26 @@ export default function CreateCommitmentStepSelectType({
   onApplyPreset,
 }: CreateCommitmentStepSelectTypeProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const [protocolConstants, setProtocolConstants] = useState<ProtocolConstants | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchProtocolConstants()
+      .then((constants) => {
+        if (!cancelled) setProtocolConstants(constants);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const commitmentTypes = useMemo(
+    () => buildCommitmentTypes(protocolConstants),
+    [protocolConstants],
+  );
 
   useEffect(() => {
     headingRef.current?.focus();
