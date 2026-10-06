@@ -73,15 +73,6 @@ export const MarketplaceGrid = memo(function MarketplaceGrid({
   filterFn,
   onStateChange,
 }: MarketplaceGridProps) {
-  const safeOnCompareToggle = useCallback(
-    (listing: MarketplaceCardProps) => {
-      if (typeof onCompareToggle === 'function') {
-        return onCompareToggle(listing);
-      }
-    },
-    [onCompareToggle],
-  );
-
   const safeOnView = useCallback(
     (id: string) => {
       if (typeof onView === 'function' && id && typeof id === 'string') {
@@ -105,6 +96,20 @@ export const MarketplaceGrid = memo(function MarketplaceGrid({
   // We disable the hook when pre-loaded items are supplied.
   const { listings, isLoading, hasMore, loadMore } = usePaginatedListings(queryParams, 9, !!items);
   const rawItems = items ?? listings;
+
+  // Resolve the listing lazily on click so every card receives the same stable
+  // callback reference across grid re-renders while preserving the public
+  // MarketplaceGrid callback contract.
+  const safeOnCompareToggle = useCallback(
+    (id: string) => {
+      if (typeof onCompareToggle !== 'function') return;
+      const listing = rawItems.find((item) => item.id === id);
+      if (listing) {
+        return onCompareToggle(listing);
+      }
+    },
+    [onCompareToggle, rawItems],
+  );
 
   const sanitizedItems = useMemo(() => {
     if (!Array.isArray(rawItems)) return [];
@@ -308,7 +313,7 @@ export const MarketplaceGrid = memo(function MarketplaceGrid({
                 {...item}
                 compareSelected={compareSelected}
                 compareDisabled={isCompareFull && !compareSelected}
-                {...(onCompareToggle ? { onCompareToggle: () => safeOnCompareToggle(item) } : {})}
+                {...(onCompareToggle ? { onCompareToggle: safeOnCompareToggle } : {})}
                 onView={safeOnView}
               />
             </li>
