@@ -57,7 +57,7 @@ function generateCommitmentId(): string {
 export default function CreateCommitment() {
   const router = useRouter();
   const { address: ownerAddress } = useWallet();
-  const { draft, saveDraft, clearDraft } = useDraftPersistence();
+  const { allDrafts, saveDraft, clearDraft, clearAllDrafts, resumeDraft } = useDraftPersistence();
   const prefill = usePrefillFromCommitment();
   const [showResumePrompt, setShowResumePrompt] = useState(false);
   const [step, setStep] = useState(1);
@@ -97,6 +97,7 @@ export default function CreateCommitment() {
   const submitStatusRef = useRef<SubmitStatus>('idle');
   const submissionEpoch = useRef(0);
   const suppressDraftSave = useRef(false);
+  const activeDraftIdRef = useRef<string | null>(null);
   const isMounted = useRef(true);
   const wasSubmittingRef = useRef(false);
 
@@ -131,11 +132,11 @@ export default function CreateCommitment() {
   }, [isSubmitting, submitStatus]);
 
   useEffect(() => {
-    if (draft) {
+    if (allDrafts.length > 0 && !activeDraftIdRef.current) {
       suppressDraftSave.current = true;
       setShowResumePrompt(true);
     }
-  }, [draft]);
+  }, [allDrafts]);
 
   // When a source commitment is loaded via ?sourceId=, prefill the wizard fields
   // and skip straight to step 2 so the user can review / adjust the copied parameters.
@@ -168,27 +169,41 @@ export default function CreateCommitment() {
     }
   }, [startTour]);
 
-  const handleResumeDraft = () => {
-    if (draft) {
+  const handleResumeDraft = (draftId: string) => {
+    const resumedDraft = resumeDraft(draftId);
+    if (resumedDraft) {
+      activeDraftIdRef.current = draftId;
       suppressDraftSave.current = false;
       updateSubmitStatus('idle');
       setSubmitError(null);
-      setStep(draft.step);
-      setSelectedType(draft.selectedType);
-      setCommitmentType(draft.commitmentType);
-      setAmount(draft.amount);
-      setAsset(draft.asset);
-      setDurationDays(draft.durationDays);
-      setMaxLossPercent(draft.maxLossPercent);
+      setStep(resumedDraft.step);
+      setSelectedType(resumedDraft.selectedType);
+      setCommitmentType(resumedDraft.commitmentType);
+      setAmount(resumedDraft.amount);
+      setAsset(resumedDraft.asset);
+      setDurationDays(resumedDraft.durationDays);
+      setMaxLossPercent(resumedDraft.maxLossPercent);
+      setShowResumePrompt(false);
+    }
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    clearDraft(draftId);
+    if (activeDraftIdRef.current === draftId) {
+      activeDraftIdRef.current = null;
+    }
+    if (allDrafts.length <= 1) {
+      suppressDraftSave.current = false;
       setShowResumePrompt(false);
     }
   };
 
   const handleStartFresh = () => {
     suppressDraftSave.current = false;
+    activeDraftIdRef.current = null;
     updateSubmitStatus('idle');
     setSubmitError(null);
-    clearDraft();
+    clearAllDrafts();
     setShowResumePrompt(false);
     setSelectedType(null);
     setCommitmentType('balanced');
@@ -215,7 +230,10 @@ export default function CreateCommitment() {
       durationDays,
       maxLossPercent,
     };
-    saveDraft(currentDraft);
+    if (!activeDraftIdRef.current) {
+      activeDraftIdRef.current = `draft-${Date.now()}`;
+    }
+    saveDraft(currentDraft, activeDraftIdRef.current);
   }, [step, selectedType, commitmentType, amount, asset, durationDays, maxLossPercent, saveDraft, showSuccessModal, isSubmitting]);
 
   // Build review data from actual configured values
@@ -369,7 +387,10 @@ export default function CreateCommitment() {
         updateSubmitStatus('success');
         setShowSuccessModal(true);
         suppressDraftSave.current = false;
-        clearDraft();
+        if (activeDraftIdRef.current) {
+          clearDraft(activeDraftIdRef.current);
+          activeDraftIdRef.current = null;
+        }
       })
       .catch((error: Error) => {
         if (!isMounted.current || submissionEpoch.current !== currentEpoch) return;
@@ -398,7 +419,10 @@ export default function CreateCommitment() {
     setAsset('XLM');
     setDurationDays(90);
     setMaxLossPercent(100);
-    clearDraft();
+    if (activeDraftIdRef.current) {
+      clearDraft(activeDraftIdRef.current);
+      activeDraftIdRef.current = null;
+    }
   };
 
   const handleCloseModal = () => {
@@ -411,8 +435,6 @@ export default function CreateCommitment() {
   const handleFundLater = () => {
     setShowSuccessModal(false);
     const numericId = commitmentId.split('-')[1] || '1';
-    router.push(`/commitments/${numericId}`);
-  };entId.split('-')[1] || '1';
     router.push(`/commitments/${numericId}`);
   };
 
@@ -449,11 +471,12 @@ export default function CreateCommitment() {
           </div>
         )}
 
-        {showResumePrompt && draft && (
+        {showResumePrompt && allDrafts.length > 0 && (
           <ResumeDraftPrompt
-            draft={draft}
+            drafts={allDrafts}
             onResume={handleResumeDraft}
             onStartFresh={handleStartFresh}
+            onDeleteDraft={handleDeleteDraft}
           />
         )}
 
