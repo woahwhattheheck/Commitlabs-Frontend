@@ -72,20 +72,34 @@ export class InMemoryKVStore implements KVStore {
   }
 }
 
-// Global instance for in-memory store
-const globalStore = new InMemoryKVStore();
+// Keep the store and its one cleanup timer together across module re-evaluation.
+// A module-local guard is reset by hot reload or vi.resetModules().
+const CLEANUP_STATE_KEY = Symbol.for('commitlabs.backend.idempotency.cleanup');
+interface CleanupState {
+  store: InMemoryKVStore;
+  intervalId: ReturnType<typeof setInterval> | null;
+}
+const runtime = globalThis as typeof globalThis & { [CLEANUP_STATE_KEY]?: CleanupState };
+const cleanupState = (runtime[CLEANUP_STATE_KEY] ??= {
+  store: new InMemoryKVStore(),
+  intervalId: null,
+});
+const globalStore = cleanupState.store;
 
-let cleanupIntervalId: ReturnType<typeof setInterval> | null = null;
-
-// Periodically clean up
-if (typeof setInterval !== 'undefined' && cleanupIntervalId === null) {
-  cleanupIntervalId = setInterval(() => globalStore.cleanup(), 60 * 1000); // every minute
+if (typeof setInterval !== 'undefined' && cleanupState.intervalId === null) {
+  cleanupState.intervalId = setInterval(() => globalStore.cleanup(), 60 * 1000);
+  // Background maintenance must not keep a Node process alive on its own.
+  // Browser timers are numeric and do not provide unref().
+  if (typeof cleanupState.intervalId !== 'number') {
+    cleanupState.intervalId.unref?.();
+  }
 }
 
+/** Stop background cleanup; a later module import may start it again. */
 export function clearCleanupInterval(): void {
-  if (cleanupIntervalId !== null) {
-    clearInterval(cleanupIntervalId);
-    cleanupIntervalId = null;
+  if (cleanupState.intervalId !== null) {
+    clearInterval(cleanupState.intervalId);
+    cleanupState.intervalId = null;
   }
 }
 
