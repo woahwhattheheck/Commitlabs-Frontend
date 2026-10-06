@@ -10,6 +10,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { logError } from './logger';
 
 export interface MockCommitment {
   id?: string | number;
@@ -85,8 +86,13 @@ async function readRawDb(): Promise<MockData> {
     const raw = await fs.readFile(mockDbPath, 'utf8');
     const parsed = JSON.parse(raw) as Partial<MockData>;
     return normalizeMockData(parsed);
-  } catch {
-    return { ...EMPTY_MOCK_DATA };
+  } catch (error: unknown) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') {
+      return normalizeMockData(undefined);
+    }
+    // Keep corrupt or unreadable data visible; never log the stored contents.
+    logError(undefined, 'Failed to read mock database');
+    throw error;
   }
 }
 
