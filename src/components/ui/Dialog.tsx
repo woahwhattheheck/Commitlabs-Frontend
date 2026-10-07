@@ -30,8 +30,17 @@ export function Dialog({
 }: DialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  const closeOnEscapeRef = useRef(closeOnEscape);
+  const initialFocusRefRef = useRef(initialFocusRef);
   const [mounted, setMounted] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    closeOnEscapeRef.current = closeOnEscape;
+    initialFocusRefRef.current = initialFocusRef;
+  }, [onClose, closeOnEscape, initialFocusRef]);
 
   useEffect(() => {
     setMounted(true);
@@ -54,9 +63,9 @@ export function Dialog({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        if (closeOnEscape) {
+        if (closeOnEscapeRef.current) {
           event.preventDefault();
-          onClose();
+          onCloseRef.current();
         }
         return;
       }
@@ -85,8 +94,8 @@ export function Dialog({
     };
 
     const focusTimer = window.setTimeout(() => {
-      if (initialFocusRef?.current) {
-        initialFocusRef.current.focus();
+      if (initialFocusRefRef.current?.current) {
+        initialFocusRefRef.current.current.focus();
       } else if (dialogRef.current) {
         const focusableElements = dialogRef.current.querySelectorAll<HTMLElement>(
           'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
@@ -133,7 +142,7 @@ export function Dialog({
         previousFocusRef.current.focus();
       }
     };
-  }, [isOpen, onClose, closeOnEscape, initialFocusRef]);
+  }, [isOpen]);
 
   if (!isOpen || !mounted) return null;
 
