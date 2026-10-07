@@ -92,7 +92,14 @@ export class RedisAdapter implements CacheAdapter {
   }
 
   async disconnect(): Promise<void> {
-    await this.client?.quit();
+    const client = this.client;
     this.client = null;
+    if (!client) return;
+
+    try {
+      await client.quit();
+    } catch (err) {
+      logError(undefined, '[RedisAdapter] disconnect failed', err as Error);
+    }
   }
 }
