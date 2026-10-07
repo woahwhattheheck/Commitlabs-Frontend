@@ -211,16 +211,22 @@ describe('RedisAdapter', () => {
       expect(installedClient(adapter)).toBeNull();
     });
 
-    it('propagates quit errors and keeps the client for a later retry', async () => {
+    it('fails open, logs quit errors, and clears the cached client', async () => {
       const adapter = new RedisAdapter('redis://test');
       const client = createClient();
       const error = new Error('redis quit failed');
       installClient(adapter, client);
       client.quit.mockRejectedValue(error);
 
-      await expect(adapter.disconnect()).rejects.toThrow(error);
+      await expect(adapter.disconnect()).resolves.toBeUndefined();
 
-      expect(installedClient(adapter)).toBe(client);
+      expect(client.quit).toHaveBeenCalledOnce();
+      expect(installedClient(adapter)).toBeNull();
+      expect(logError).toHaveBeenCalledWith(
+        undefined,
+        '[RedisAdapter] disconnect failed',
+        error,
+      );
     });
   });
 });
