@@ -3,13 +3,11 @@ import { ValidationError } from '@/lib/backend/errors';
 /**
  * Canonical regex for a Stellar public key (ed25519 account ID).
  *
- * A Stellar G-address is a 56-character base32 string whose first character is
- * a constant version byte (`G`), encoded in an alphabet that omits the easily
- * confused characters `0, `O`, `I`, and `L`. Rejecting those characters is a
- * hardening choice that mirrors the stricter 56-char pattern already used for
- * `EarlyExitRequestBodySchema` while also excluding visually ambiguous input.
+ * A Stellar G-address is a 56-character string whose first character is the
+ * account version byte (`G`). The remaining characters use the RFC 4648 base32
+ * alphabet (`A-Z` and `2-7`) without padding.
  */
-export const STELLAR_PUBLIC_KEY_REGEX = /^G[A-HJ-NZ-Z0-9]{55}$/;
+export const STELLAR_PUBLIC_KEY_REGEX = /^G[A-Z2-7]{55}$/;
 
 /**
  * Assets the application supports for commitments. Kept in one place so the

@@ -9,7 +9,7 @@ import {
 } from './validation';
 import { ValidationError } from './errors';
 
-const VALID_SAMPLE_ADDRESS = 'GABQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQHGPC';
+const VALID_SAMPLE_ADDRESS = 'GAG7SXULMNWCW6LX42JKZOZRA2JJXQT23LYY32OXA6XECUQG7RZTQJHO';
 
 describe('validateSupportedAsset', () => {
   it('accepts supported assets', () => {
@@ -52,8 +52,8 @@ describe('validateStellarAddress', () => {
       '',
       'abc',
       'invalid-address',
-      '1'.repeat(56),
-      'O'.repeat(56),
+      `G${'0'.repeat(55)}`,
+      `G${'8'.repeat(55)}`,
       VALID_SAMPLE_ADDRESS.replace('G', 'H'),
       VALID_SAMPLE_ADDRESS.slice(0, 55),
       VALID_SAMPLE_ADDRESS.toLowerCase(),
