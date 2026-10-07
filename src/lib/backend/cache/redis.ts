@@ -30,20 +30,29 @@ type IoRedis = {
   quit(): Promise<unknown>;
 };
 
+type RedisClientFactory = (redisUrl: string) => IoRedis;
+
+function createRedisClient(redisUrl: string): IoRedis {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const Redis = require('ioredis');
+  return new Redis(redisUrl, {
+    lazyConnect: true,
+    enableReadyCheck: false,
+    maxRetriesPerRequest: 2,
+  }) as IoRedis;
+}
+
 export class RedisAdapter implements CacheAdapter {
   private client: IoRedis | null = null;
 
-  constructor(private readonly redisUrl: string) {}
+  constructor(
+    private readonly redisUrl: string,
+    private readonly clientFactory: RedisClientFactory = createRedisClient,
+  ) {}
 
   private getClient(): IoRedis {
     if (!this.client) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const Redis = require('ioredis');
-      this.client = new Redis(this.redisUrl, {
-        lazyConnect: true,
-        enableReadyCheck: false,
-        maxRetriesPerRequest: 2,
-      }) as IoRedis;
+      this.client = this.clientFactory(this.redisUrl);
     }
     return this.client;
   }
@@ -92,7 +101,14 @@ export class RedisAdapter implements CacheAdapter {
   }
 
   async disconnect(): Promise<void> {
-    await this.client?.quit();
+    const client = this.client;
     this.client = null;
+    if (!client) return;
+
+    try {
+      await client.quit();
+    } catch (err) {
+      logError(undefined, '[RedisAdapter] disconnect failed', err as Error);
+    }
   }
 }
