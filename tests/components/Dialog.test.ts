@@ -26,6 +26,18 @@ describe('Dialog backdrop dismissal', () => {
     expect(RESUME_DRAFT_SOURCE).toMatch(/closeOnEscape=\{!pendingAction\}/);
   });
 
+  it('keeps the open-session focus snapshot stable across prop updates', () => {
+    expect(DIALOG_SOURCE).toMatch(/const onCloseRef = useRef\(onClose\)/);
+    expect(DIALOG_SOURCE).toMatch(/const closeOnEscapeRef = useRef\(closeOnEscape\)/);
+    expect(DIALOG_SOURCE).toMatch(/const initialFocusRefRef = useRef\(initialFocusRef\)/);
+    expect(DIALOG_SOURCE).toMatch(/if \(closeOnEscapeRef\.current\)/);
+    expect(DIALOG_SOURCE).toMatch(/onCloseRef\.current\(\)/);
+    expect(DIALOG_SOURCE).toMatch(/initialFocusRefRef\.current\.current\.focus\(\)/);
+    expect(DIALOG_SOURCE).not.toContain(
+      '}, [isOpen, onClose, closeOnEscape, initialFocusRef]);',
+    );
+  });
+
   it('wires the named-draft lifecycle through the create page', () => {
     expect(CREATE_PAGE_SOURCE).toMatch(/allDrafts, saveDraft, clearDraft, clearAllDrafts, resumeDraft/);
     expect(CREATE_PAGE_SOURCE).toMatch(/activeDraftIdRef = useRef<string \| null>\(null\)/);
