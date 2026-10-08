@@ -66,4 +66,33 @@ describe('supported config overrides', () => {
       );
     }
   });
+
+  it('isolates returned assets, profiles, and bounds from subsequent reads', () => {
+    const first = getSupportedConfig();
+    first.assets[0]!.code = 'MODIFIED';
+    first.riskProfiles[0]!.maxLossBps = -1;
+    first.bounds.durationDays.min = -100;
+    first.bounds.amount.max = -100;
+
+    const second = getSupportedConfig();
+    expect(second.assets[0]!.code).toBe('XLM');
+    expect(second.riskProfiles[0]!.maxLossBps).toBe(1000);
+    expect(second.bounds.durationDays.min).toBe(1);
+    expect(second.bounds.amount.max).toBe(1000000);
+    expect(SUPPORTED_ASSETS[0]!.code).toBe('XLM');
+    expect(RISK_PROFILES[0]!.maxLossBps).toBe(1000);
+
+    mockEnv.COMMITLABS_SUPPORTED_CONFIG_JSON = JSON.stringify({
+      assets: [{ code: 'EURC', name: 'Euro Coin', decimals: 7 }],
+      riskProfiles: [{
+        id: 'moderate', name: 'Moderate', description: 'Snapshot isolation',
+        maxLossBps: 2500, lockDurationDays: 45,
+      }],
+    });
+    const overridden = getSupportedConfig();
+    overridden.assets[0]!.code = 'CHANGED';
+    overridden.riskProfiles[0]!.maxLossBps = -1;
+    expect(getSupportedConfig().assets[0]!.code).toBe('EURC');
+    expect(getSupportedConfig().riskProfiles[0]!.maxLossBps).toBe(2500);
+  });
 });
