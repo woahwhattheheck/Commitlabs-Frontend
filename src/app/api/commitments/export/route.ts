@@ -44,7 +44,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/lib/backend/auth';
+import { verifySessionToken, AUTH_COOKIE_NAME } from '@/lib/backend/auth';
 import { type CsvRow, createCsvStream, formatCsvRow } from '@/lib/backend/csv';
 import {
   BadRequestError,
@@ -108,15 +108,20 @@ function stringifyCsvValue(value: unknown): string {
   return typeof value === 'bigint' ? value.toString() : String(value);
 }
 
-function getBearerToken(req: NextRequest): string {
+function getSessionToken(req: NextRequest): string {
   const authorizationHeader = req.headers.get('authorization');
-  const match = authorizationHeader?.match(/^Bearer\s+(.+)$/i);
-
-  if (!match?.[1]) {
-    throw new UnauthorizedError();
+  if (authorizationHeader) {
+    const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
+    if (!match?.[1]) throw new UnauthorizedError();
+    return match[1];
   }
 
-  return match[1];
+  // Browser sign-in stores the opaque session ONLY in an HttpOnly cookie.
+  // Retain the existing bearer flow for API clients, but allow same-origin
+  // browser exports to authenticate without exposing that cookie to JS.
+  const cookieToken = req.cookies.get(AUTH_COOKIE_NAME)?.value;
+  if (!cookieToken) throw new UnauthorizedError();
+  return cookieToken;
 }
 
 const MAX_EXPORT_ROWS = 5000;
@@ -188,9 +193,13 @@ type DateRange = (typeof DATE_RANGES)[number];
 
 function resolveDateRange(dateRangeParam: string | null): DateRange {
   if (!dateRangeParam) return 'all';
-  return (DATE_RANGES as readonly string[]).includes(dateRangeParam)
-    ? (dateRangeParam as DateRange)
-    : 'all';
+  if ((DATE_RANGES as readonly string[]).includes(dateRangeParam)) {
+    return dateRangeParam as DateRange;
+  }
+
+  throw new BadRequestError(
+    `Unsupported export date range: ${dateRangeParam}. Use "all", "7d", "30d", or "year".`,
+  );
 }
 
 /** Cutoff instant a commitment's `createdAt` must be on-or-after to match `range`. */
@@ -243,7 +252,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     throw new TooManyRequestsError();
   }
 
-  const token = getBearerToken(req);
+  const token = getSessionToken(req);
   const session = verifySessionToken(token);
 
   if (!session.valid || !session.address) {
@@ -262,11 +271,22 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     throw new ForbiddenError('The export owner does not match the authenticated wallet.');
   }
 
+  // Resolve the export request before idempotency lookup so replay is bound to
+  // the user's normalized export intent, not only wallet + caller key.
+  const headers = resolveRequestedHeaders(searchParams.get('columns'));
+  const format = resolveExportFormat(searchParams.get('format'));
+  const dateRange = resolveDateRange(searchParams.get('dateRange'));
+  const exportIntent = [
+    dateRange,
+    format,
+    ...headers.map((header) => encodeURIComponent(header)),
+  ].join(':');
+
   // Idempotency: check for cached export on retry within 24h TTL.
   // Same key returns the cached response; different key forces re-fetch.
   const idempotencyKey = req.headers.get('idempotency-key');
   if (idempotencyKey) {
-    const scopedKey = `export:${session.address}:${idempotencyKey}`;
+    const scopedKey = `export:${session.address}:${exportIntent}:${idempotencyKey}`;
     const cached = await idempotencyService.getRecord<ExportCacheEntry>(scopedKey);
     if (cached?.status === 'COMPLETED' && cached.response) {
       return new NextResponse(cached.response.body, {
@@ -284,10 +304,6 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     }
 
     try {
-      const headers = resolveRequestedHeaders(searchParams.get('columns'));
-      resolveExportFormat(searchParams.get('format'));
-      const dateRange = resolveDateRange(searchParams.get('dateRange'));
-
       const commitments = filterByDateRange(
         await getUserCommitmentsFromChain(ownerAddress),
         dateRange,
@@ -327,10 +343,6 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   }
 
   // No idempotency key: stream without caching. Retries will re-fetch.
-  const headers = resolveRequestedHeaders(searchParams.get('columns'));
-  resolveExportFormat(searchParams.get('format'));
-  const dateRange = resolveDateRange(searchParams.get('dateRange'));
-
   const commitments = filterByDateRange(await getUserCommitmentsFromChain(ownerAddress), dateRange);
   if (commitments.length > MAX_EXPORT_ROWS) {
     throw new BadRequestError(

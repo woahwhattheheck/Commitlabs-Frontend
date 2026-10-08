@@ -501,7 +501,7 @@ function CommitmentDetailPageContent({
         <ExportCommitmentsModal
           isOpen={exportModalOpen}
           onClose={() => setExportModalOpen(false)}
-          ownerAddress={MOCK_OWNER_ADDRESS}
+          ownerAddress={wallet.address}
         />
 
         {earlyExitModalOpen && (
