@@ -106,7 +106,7 @@ export default function VolatilityExposureMeter({
   const descId = useId();
 
   const isUnavailable = insufficientData || typeof valuePercent !== 'number' || !Number.isFinite(valuePercent);
-  const percent = clamp(typeof valuePercent === 'number' && Number.isFinite(valuePercent) ? valuePercent : 0);
+  const percent = isUnavailable ? 0 : clamp(valuePercent ?? 0);
   const zone = getThresholdZone(percent);
   const level = getExposureLevel(percent);
   const riskProfileLabel = riskProfileId ? RISK_PROFILE_LABELS[riskProfileId] : undefined;
