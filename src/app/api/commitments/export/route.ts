@@ -193,9 +193,13 @@ type DateRange = (typeof DATE_RANGES)[number];
 
 function resolveDateRange(dateRangeParam: string | null): DateRange {
   if (!dateRangeParam) return 'all';
-  return (DATE_RANGES as readonly string[]).includes(dateRangeParam)
-    ? (dateRangeParam as DateRange)
-    : 'all';
+  if ((DATE_RANGES as readonly string[]).includes(dateRangeParam)) {
+    return dateRangeParam as DateRange;
+  }
+
+  throw new BadRequestError(
+    `Unsupported export date range: ${dateRangeParam}. Use "all", "7d", "30d", or "year".`,
+  );
 }
 
 /** Cutoff instant a commitment's `createdAt` must be on-or-after to match `range`. */
