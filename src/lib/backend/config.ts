@@ -358,10 +358,98 @@ export const SUPPORTED_ASSETS: SupportedAsset[] = [
   { code: 'USDC', name: 'USD Coin', decimals: 7 },
 ];
 
+type SupportedConfigOverrides = Pick<SupportedConfig, 'assets' | 'riskProfiles'>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isSupportedAsset(value: unknown): value is SupportedAsset {
+  return (
+    isRecord(value) &&
+    typeof value.code === 'string' &&
+    value.code.length > 0 &&
+    typeof value.name === 'string' &&
+    value.name.length > 0 &&
+    typeof value.decimals === 'number' &&
+    Number.isInteger(value.decimals) &&
+    value.decimals >= 0
+  );
+}
+
+function isRiskProfile(value: unknown): value is RiskProfile {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    value.id.length > 0 &&
+    typeof value.name === 'string' &&
+    value.name.length > 0 &&
+    typeof value.description === 'string' &&
+    typeof value.maxLossBps === 'number' &&
+    Number.isInteger(value.maxLossBps) &&
+    value.maxLossBps >= 0 &&
+    value.maxLossBps <= 10_000 &&
+    (value.lockDurationDays === undefined ||
+      (typeof value.lockDurationDays === 'number' &&
+        Number.isInteger(value.lockDurationDays) &&
+        value.lockDurationDays >= PARAMETER_BOUNDS.durationDays.min &&
+        value.lockDurationDays <= PARAMETER_BOUNDS.durationDays.max))
+  );
+}
+
+function parseSupportedConfigJson(): Partial<SupportedConfigOverrides> {
+  const raw = getValidatedEnv().COMMITLABS_SUPPORTED_CONFIG_JSON;
+  if (!raw) return {};
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(
+      `Failed to parse COMMITLABS_SUPPORTED_CONFIG_JSON: ${(err as Error).message}`,
+    );
+  }
+
+  if (!isRecord(parsed)) {
+    throw new Error('COMMITLABS_SUPPORTED_CONFIG_JSON must be a JSON object');
+  }
+
+  const overrides: Partial<SupportedConfigOverrides> = {};
+
+  if (parsed.assets !== undefined) {
+    if (!Array.isArray(parsed.assets) || !parsed.assets.every(isSupportedAsset)) {
+      throw new Error(
+        'COMMITLABS_SUPPORTED_CONFIG_JSON.assets must be an array of supported asset objects',
+      );
+    }
+    overrides.assets = parsed.assets;
+  }
+
+  if (parsed.riskProfiles !== undefined) {
+    if (!Array.isArray(parsed.riskProfiles) || !parsed.riskProfiles.every(isRiskProfile)) {
+      throw new Error(
+        'COMMITLABS_SUPPORTED_CONFIG_JSON.riskProfiles must be an array of risk profile objects',
+      );
+    }
+    overrides.riskProfiles = parsed.riskProfiles;
+  }
+
+  return overrides;
+}
+
 export function getSupportedConfig(): SupportedConfig {
+  const overrides = parseSupportedConfigJson();
+
+  const assets = overrides.assets ?? SUPPORTED_ASSETS;
+  const riskProfiles = overrides.riskProfiles ?? RISK_PROFILES;
+
+  // Return independent snapshots: callers must not mutate shared defaults.
   return {
-    assets: SUPPORTED_ASSETS,
-    riskProfiles: RISK_PROFILES,
-    bounds: PARAMETER_BOUNDS,
+    assets: assets.map((asset) => ({ ...asset })),
+    riskProfiles: riskProfiles.map((profile) => ({ ...profile })),
+    bounds: {
+      durationDays: { ...PARAMETER_BOUNDS.durationDays },
+      amount: { ...PARAMETER_BOUNDS.amount },
+    },
   };
 }
