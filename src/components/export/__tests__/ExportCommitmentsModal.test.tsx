@@ -18,7 +18,6 @@ describe('Commitment CSV export request', () => {
         isOpen
         onClose={() => {}}
         ownerAddress={`G${'A'.repeat(55)}`}
-        sessionToken="sample-test-session"
       />,
     );
 
@@ -37,7 +36,7 @@ describe('Commitment CSV export request', () => {
     expect(request.searchParams.get('dateRange')).toBe('7d');
     expect(request.searchParams.get('format')).toBe('csv');
     expect(request.searchParams.get('ownerAddress')).toBe(`G${'A'.repeat(55)}`);
-    expect(options.headers).toEqual({ Authorization: 'Bearer sample-test-session' });
-    expect(requestUrl).not.toContain('sample-test-session');
+    expect(options.credentials).toBe('same-origin');
+    expect(options.headers ?? {}).not.toHaveProperty('Authorization');
   });
 });
