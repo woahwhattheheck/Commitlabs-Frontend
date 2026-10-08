@@ -198,8 +198,16 @@ export default function VolatilityExposureMeter({
           className={styles.tooltipTrigger}
           tabIndex={0}
           role="tooltip"
-          aria-label={zone.tooltip}
-          title={zone.tooltip}
+          aria-label={
+            isUnavailable
+              ? 'Volatility exposure data unavailable; risk zone cannot be determined.'
+              : zone.tooltip
+          }
+          title={
+            isUnavailable
+              ? 'Volatility exposure data unavailable; risk zone cannot be determined.'
+              : zone.tooltip
+          }
         >
           &#9432;
         </span>

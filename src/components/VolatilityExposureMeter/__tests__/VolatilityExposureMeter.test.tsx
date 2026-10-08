@@ -143,6 +143,13 @@ describe('VolatilityExposureMeter (component)', () => {
     expect(meter?.getAttribute('aria-valuenow')).toBeNull();
     expect(fill?.getAttribute('style')).toContain('width: 0%');
     expect(container.querySelector('[aria-current="true"]')).toBeNull();
+    const tooltip = container.querySelector('[role="tooltip"]');
+    expect(tooltip?.getAttribute('aria-label')).toBe(
+      'Volatility exposure data unavailable; risk zone cannot be determined.',
+    );
+    expect(tooltip?.getAttribute('title')).toBe(
+      'Volatility exposure data unavailable; risk zone cannot be determined.',
+    );
   });
 
   it('clamps percentage in the display', () => {
