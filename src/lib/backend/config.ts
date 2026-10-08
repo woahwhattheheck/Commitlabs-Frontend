@@ -440,9 +440,16 @@ function parseSupportedConfigJson(): Partial<SupportedConfigOverrides> {
 export function getSupportedConfig(): SupportedConfig {
   const overrides = parseSupportedConfigJson();
 
+  const assets = overrides.assets ?? SUPPORTED_ASSETS;
+  const riskProfiles = overrides.riskProfiles ?? RISK_PROFILES;
+
+  // Return independent snapshots: callers must not mutate shared defaults.
   return {
-    assets: overrides.assets ?? SUPPORTED_ASSETS,
-    riskProfiles: overrides.riskProfiles ?? RISK_PROFILES,
-    bounds: PARAMETER_BOUNDS,
+    assets: assets.map((asset) => ({ ...asset })),
+    riskProfiles: riskProfiles.map((profile) => ({ ...profile })),
+    bounds: {
+      durationDays: { ...PARAMETER_BOUNDS.durationDays },
+      amount: { ...PARAMETER_BOUNDS.amount },
+    },
   };
 }
