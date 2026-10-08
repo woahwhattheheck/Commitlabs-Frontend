@@ -16,7 +16,7 @@ import {
   isKnownStatusValue,
   isEligibleForEarlyExit,
   type OwnershipState,
-} from './page';
+} from './authorization';
 
 const OWNER_ADDRESS = `G${'A'.repeat(55)}`;
 const OTHER_ADDRESS = `G${'B'.repeat(55)}`;
