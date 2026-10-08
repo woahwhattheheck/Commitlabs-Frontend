@@ -103,4 +103,45 @@ describe('CommitmentEarlyExitModal', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
   });
+
+  it('shows the penalty breakdown the user is acknowledging', () => {
+    render(
+      <CommitmentEarlyExitModal
+        {...amounts}
+        isOpen
+        hasAcknowledged={false}
+        onChangeAcknowledged={vi.fn()}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('$100.00')).toBeInTheDocument();
+    expect(screen.getByText('Penalty (3%)')).toBeInTheDocument();
+    expect(screen.getByText('-$3.00')).toBeInTheDocument();
+    expect(screen.getByText('$97.00')).toBeInTheDocument();
+  });
+
+  it('cancels from the backdrop but not from clicks inside the panel', () => {
+    const onCancel = vi.fn();
+    const onConfirm = vi.fn();
+
+    render(
+      <CommitmentEarlyExitModal
+        {...amounts}
+        isOpen
+        hasAcknowledged={false}
+        onChangeAcknowledged={vi.fn()}
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('heading', { name: 'Early Exit' }));
+    expect(onCancel).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('dialog'));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });
