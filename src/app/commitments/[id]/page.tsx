@@ -502,7 +502,6 @@ function CommitmentDetailPageContent({
           isOpen={exportModalOpen}
           onClose={() => setExportModalOpen(false)}
           ownerAddress={wallet.address}
-          sessionToken={wallet.sessionToken}
         />
 
         {earlyExitModalOpen && (
