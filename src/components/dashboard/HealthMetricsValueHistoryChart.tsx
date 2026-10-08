@@ -129,7 +129,10 @@ const HealthMetricsValueHistoryChartComponent: React.FC<HealthMetricsValueHistor
     Boolean(exposure) ||
     (typeof volatilityPercent === 'number' && Number.isFinite(volatilityPercent));
   const meterPercent =
-    exposure?.exposurePercent ?? (typeof volatilityPercent === 'number' ? volatilityPercent : 0);
+    exposure?.exposurePercent ??
+    (typeof volatilityPercent === 'number' && Number.isFinite(volatilityPercent)
+      ? volatilityPercent
+      : undefined);
 
   return (
     <>

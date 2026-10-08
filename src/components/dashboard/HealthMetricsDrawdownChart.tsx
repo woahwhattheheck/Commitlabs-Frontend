@@ -95,7 +95,10 @@ const HealthMetricsDrawdownChartComponent: React.FC<HealthMetricsDrawdownChartPr
     Boolean(exposure) ||
     (typeof volatilityPercent === 'number' && Number.isFinite(volatilityPercent));
   const meterPercent =
-    exposure?.exposurePercent ?? (typeof volatilityPercent === 'number' ? volatilityPercent : 0);
+    exposure?.exposurePercent ??
+    (typeof volatilityPercent === 'number' && Number.isFinite(volatilityPercent)
+      ? volatilityPercent
+      : undefined);
 
   const boundedData = useMemo(() => downsampleSeries(data), [data]);
 
