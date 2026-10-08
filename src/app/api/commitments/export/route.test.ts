@@ -134,7 +134,7 @@ describe('GET /api/commitments/export', () => {
     expect(body.error.code).toBe('BAD_REQUEST');
   });
 
-  it('falls back to all dates when the requested range is unsupported', async () => {
+  it('returns 400 when the requested date range is unsupported', async () => {
     const ownerAddress = VALID_ADDRESS_A;
     vi.mocked(verifySessionToken).mockReturnValue({ valid: true, address: ownerAddress });
     vi.mocked(getUserCommitmentsFromChain).mockResolvedValue([]);
@@ -143,9 +143,11 @@ describe('GET /api/commitments/export', () => {
       makeRequest({ ownerAddress, dateRange: 'nonsense' }, { authorization: 'Bearer valid-token' }),
       { params: {} },
     );
+    const body = await res.json();
 
-    expect(res.status).toBe(200);
-    expect(getUserCommitmentsFromChain).toHaveBeenCalledWith(ownerAddress);
+    expect(res.status).toBe(400);
+    expect(body.error.code).toBe('BAD_REQUEST');
+    expect(getUserCommitmentsFromChain).not.toHaveBeenCalled();
   });
 
   it('prevents duplicate submissions with idempotency-key', async () => {
