@@ -267,11 +267,22 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     throw new ForbiddenError('The export owner does not match the authenticated wallet.');
   }
 
+  // Resolve the export request before idempotency lookup so replay is bound to
+  // the user's normalized export intent, not only wallet + caller key.
+  const headers = resolveRequestedHeaders(searchParams.get('columns'));
+  const format = resolveExportFormat(searchParams.get('format'));
+  const dateRange = resolveDateRange(searchParams.get('dateRange'));
+  const exportIntent = [
+    dateRange,
+    format,
+    ...headers.map((header) => encodeURIComponent(header)),
+  ].join(':');
+
   // Idempotency: check for cached export on retry within 24h TTL.
   // Same key returns the cached response; different key forces re-fetch.
   const idempotencyKey = req.headers.get('idempotency-key');
   if (idempotencyKey) {
-    const scopedKey = `export:${session.address}:${idempotencyKey}`;
+    const scopedKey = `export:${session.address}:${exportIntent}:${idempotencyKey}`;
     const cached = await idempotencyService.getRecord<ExportCacheEntry>(scopedKey);
     if (cached?.status === 'COMPLETED' && cached.response) {
       return new NextResponse(cached.response.body, {
@@ -289,10 +300,6 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     }
 
     try {
-      const headers = resolveRequestedHeaders(searchParams.get('columns'));
-      resolveExportFormat(searchParams.get('format'));
-      const dateRange = resolveDateRange(searchParams.get('dateRange'));
-
       const commitments = filterByDateRange(
         await getUserCommitmentsFromChain(ownerAddress),
         dateRange,
@@ -332,10 +339,6 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   }
 
   // No idempotency key: stream without caching. Retries will re-fetch.
-  const headers = resolveRequestedHeaders(searchParams.get('columns'));
-  resolveExportFormat(searchParams.get('format'));
-  const dateRange = resolveDateRange(searchParams.get('dateRange'));
-
   const commitments = filterByDateRange(await getUserCommitmentsFromChain(ownerAddress), dateRange);
   if (commitments.length > MAX_EXPORT_ROWS) {
     throw new BadRequestError(

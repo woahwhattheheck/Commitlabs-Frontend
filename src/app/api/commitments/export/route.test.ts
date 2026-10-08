@@ -173,6 +173,30 @@ describe('GET /api/commitments/export', () => {
     expect(getUserCommitmentsFromChain).toHaveBeenCalledTimes(1);
   });
 
+  it('scopes idempotency replay by normalized export intent', async () => {
+    const ownerAddress = VALID_ADDRESS_A;
+    vi.mocked(verifySessionToken).mockReturnValue({ valid: true, address: ownerAddress });
+    vi.mocked(getUserCommitmentsFromChain).mockResolvedValue([]);
+
+    const key = 'export-idem-date-range';
+    const headers = { authorization: 'Bearer valid-token', 'idempotency-key': key };
+
+    const sevenDays = await GET(
+      makeRequest({ ownerAddress, dateRange: '7d', format: 'csv' }, headers),
+      { params: {} },
+    );
+    expect(sevenDays.status).toBe(200);
+
+    const thirtyDays = await GET(
+      makeRequest({ ownerAddress, dateRange: '30d', format: 'csv' }, headers),
+      { params: {} },
+    );
+    expect(thirtyDays.status).toBe(200);
+
+    // Same caller key with a different filter is a different export operation.
+    expect(getUserCommitmentsFromChain).toHaveBeenCalledTimes(2);
+  });
+
   it('scopes idempotency key by wallet address', async () => {
     vi.mocked(getUserCommitmentsFromChain).mockResolvedValue([]);
 
