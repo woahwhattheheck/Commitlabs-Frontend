@@ -144,4 +144,37 @@ describe('CommitmentEarlyExitModal', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
   });
+
+  it('mirrors the acknowledgement on the checkbox and re-locks Confirm when it is cleared', () => {
+    const onChangeAcknowledged = vi.fn();
+    const onConfirm = vi.fn();
+    const modal = (hasAcknowledged: boolean) => (
+      <CommitmentEarlyExitModal
+        {...amounts}
+        isOpen
+        hasAcknowledged={hasAcknowledged}
+        onChangeAcknowledged={onChangeAcknowledged}
+        onCancel={vi.fn()}
+        onConfirm={onConfirm}
+      />
+    );
+
+    const { rerender } = render(modal(false));
+    const checkbox = screen.getByRole('checkbox', { name: 'I understand the penalty' });
+    const confirm = screen.getByRole('button', { name: 'Confirm' });
+    expect(checkbox).not.toBeChecked();
+
+    fireEvent.click(checkbox);
+    expect(onChangeAcknowledged).toHaveBeenCalledTimes(1);
+
+    rerender(modal(true));
+    expect(checkbox).toBeChecked();
+    expect(confirm).toBeEnabled();
+
+    rerender(modal(false));
+    expect(checkbox).not.toBeChecked();
+    expect(confirm).toBeDisabled();
+    fireEvent.click(confirm);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });
