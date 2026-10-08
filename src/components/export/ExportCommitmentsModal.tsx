@@ -7,8 +7,6 @@ interface ExportCommitmentsModalProps {
   isOpen: boolean;
   onClose: () => void;
   ownerAddress: string;
-  /** Signed wallet session returned by useWallet; never put this in an export URL. */
-  sessionToken?: string | null;
 }
 
 function exportErrorMessage(status: number): string {
@@ -23,7 +21,6 @@ export default function ExportCommitmentsModal({
   isOpen,
   onClose,
   ownerAddress,
-  sessionToken,
 }: ExportCommitmentsModalProps) {
   const [dateRange, setDateRange] = useState<ExportDateRange>('all');
   const [isDownloading, setIsDownloading] = useState(false);
@@ -52,8 +49,8 @@ export default function ExportCommitmentsModal({
     setError(null);
     setSuccess(false);
 
-    if (!ownerAddress.trim() || !sessionToken?.trim()) {
-      setError('Connect and sign in with your wallet before exporting.');
+    if (!ownerAddress.trim()) {
+      setError('Connect your wallet before exporting.');
       return;
     }
 
@@ -67,7 +64,8 @@ export default function ExportCommitmentsModal({
         buildCommitmentsExportUrl({ ownerAddress, dateRange, format: 'csv' }),
         {
           method: 'GET',
-          headers: { Authorization: `Bearer ${sessionToken}` },
+          // Auth is the browser's signed HttpOnly session cookie.
+          credentials: 'same-origin',
           signal: controller.signal,
           cache: 'no-store',
         },
