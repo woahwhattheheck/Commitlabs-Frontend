@@ -44,7 +44,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/lib/backend/auth';
+import { verifySessionToken, AUTH_COOKIE_NAME } from '@/lib/backend/auth';
 import { type CsvRow, createCsvStream, formatCsvRow } from '@/lib/backend/csv';
 import {
   BadRequestError,
@@ -108,15 +108,20 @@ function stringifyCsvValue(value: unknown): string {
   return typeof value === 'bigint' ? value.toString() : String(value);
 }
 
-function getBearerToken(req: NextRequest): string {
+function getSessionToken(req: NextRequest): string {
   const authorizationHeader = req.headers.get('authorization');
-  const match = authorizationHeader?.match(/^Bearer\s+(.+)$/i);
-
-  if (!match?.[1]) {
-    throw new UnauthorizedError();
+  if (authorizationHeader) {
+    const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
+    if (!match?.[1]) throw new UnauthorizedError();
+    return match[1];
   }
 
-  return match[1];
+  // Browser sign-in stores the opaque session ONLY in an HttpOnly cookie.
+  // Retain the existing bearer flow for API clients, but allow same-origin
+  // browser exports to authenticate without exposing that cookie to JS.
+  const cookieToken = req.cookies.get(AUTH_COOKIE_NAME)?.value;
+  if (!cookieToken) throw new UnauthorizedError();
+  return cookieToken;
 }
 
 const MAX_EXPORT_ROWS = 5000;
@@ -243,7 +248,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     throw new TooManyRequestsError();
   }
 
-  const token = getBearerToken(req);
+  const token = getSessionToken(req);
   const session = verifySessionToken(token);
 
   if (!session.valid || !session.address) {
