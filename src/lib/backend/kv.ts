@@ -84,7 +84,7 @@ class UpstashKVStore implements KVStore {
         this.token = token;
     }
 
-    private async command(args: (string | number)[]) {
+    private async command<T = unknown>(args: (string | number)[]): Promise<T> {
         const response = await fetch(`${this.url}`, {
             method: 'POST',
             headers: {
@@ -98,12 +98,12 @@ class UpstashKVStore implements KVStore {
             throw new Error(`KV Store Error: ${response.statusText}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as { result: T };
         return data.result;
     }
 
     async get<T>(key: string): Promise<T | null> {
-        const result = await this.command(['GET', key]);
+        const result = await this.command<string | null>(['GET', key]);
         if (result === null) return null;
         try {
             return JSON.parse(result) as T;
@@ -128,7 +128,7 @@ class UpstashKVStore implements KVStore {
     async getdel<T>(key: string): Promise<T | null> {
         // GETDEL is available in Redis 6.2+
         // Upstash supports it.
-        const result = await this.command(['GETDEL', key]);
+        const result = await this.command<string | null>(['GETDEL', key]);
         if (result === null) return null;
         try {
             return JSON.parse(result) as T;
@@ -138,7 +138,7 @@ class UpstashKVStore implements KVStore {
     }
 
     async incr(key: string): Promise<number> {
-        return await this.command(['INCR', key]);
+        return await this.command<number>(['INCR', key]);
     }
 
     async expire(key: string, seconds: number): Promise<void> {
