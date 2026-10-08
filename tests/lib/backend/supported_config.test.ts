@@ -43,4 +43,27 @@ describe('supported config overrides', () => {
     expect(config.assets).toEqual(assets);
     expect(config.riskProfiles).toEqual(riskProfiles);
   });
+
+  it('rejects loss tolerances and lock durations outside configured bounds', () => {
+    const allowed = {
+      id: 'bounded',
+      name: 'Bounded',
+      description: 'Boundary values',
+      maxLossBps: 10000,
+      lockDurationDays: 365,
+    };
+
+    mockEnv.COMMITLABS_SUPPORTED_CONFIG_JSON = JSON.stringify({ riskProfiles: [allowed] });
+    expect(getSupportedConfig().riskProfiles).toEqual([allowed]);
+
+    for (const invalid of [
+      { ...allowed, maxLossBps: 10001 },
+      { ...allowed, lockDurationDays: 366 },
+    ]) {
+      mockEnv.COMMITLABS_SUPPORTED_CONFIG_JSON = JSON.stringify({ riskProfiles: [invalid] });
+      expect(() => getSupportedConfig()).toThrow(
+        'COMMITLABS_SUPPORTED_CONFIG_JSON.riskProfiles',
+      );
+    }
+  });
 });
