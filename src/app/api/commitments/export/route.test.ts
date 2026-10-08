@@ -7,6 +7,7 @@ vi.mock('@/lib/backend/rateLimit', () => ({
 
 vi.mock('@/lib/backend/auth', () => ({
   verifySessionToken: vi.fn(),
+  AUTH_COOKIE_NAME: 'cl_auth_session',
 }));
 
 vi.mock('@/lib/backend/services/contracts', () => ({
@@ -51,6 +52,25 @@ describe('GET /api/commitments/export', () => {
 
     expect(res.status).toBe(401);
     expect(body.error.code).toBe('UNAUTHORIZED');
+  });
+
+  it('uses the signed HttpOnly cookie for browser CSV export and still fences wrong-wallet requests', async () => {
+    vi.mocked(verifySessionToken).mockReturnValue({ valid: true, address: VALID_ADDRESS_A });
+    vi.mocked(getUserCommitmentsFromChain).mockResolvedValue([]);
+
+    const cookie = { cookie: 'cl_auth_session=signed-browser-session' };
+    const response = await GET(
+      makeRequest({ ownerAddress: VALID_ADDRESS_A, dateRange: '7d', format: 'csv' }, cookie),
+      { params: {} },
+    );
+    expect(response.status).toBe(200);
+    expect(verifySessionToken).toHaveBeenCalledWith('signed-browser-session');
+
+    vi.mocked(verifySessionToken).mockReturnValue({ valid: true, address: VALID_ADDRESS_B });
+    const forbidden = await GET(makeRequest({ ownerAddress: VALID_ADDRESS_A }, cookie), {
+      params: {},
+    });
+    expect(forbidden.status).toBe(403);
   });
 
   it('returns 403 when the session wallet does not match the requested ownerAddress', async () => {
