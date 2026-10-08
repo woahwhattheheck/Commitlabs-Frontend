@@ -1,15 +1,14 @@
 import { ValidationError } from '@/lib/backend/errors';
 
 /**
- * Canonical regex for a Stellar public key (ed25519 account ID).
+ * Structural format guard for a Stellar ed25519 G-address.
  *
- * A Stellar G-address is a 56-character base32 string whose first character is
- * a constant version byte (`G`), encoded in an alphabet that omits the easily
- * confused characters `0, `O`, `I`, and `L`. Rejecting those characters is a
- * hardening choice that mirrors the stricter 56-char pattern already used for
- * `EarlyExitRequestBodySchema` while also excluding visually ambiguous input.
+ * Stellar StrKey uses the RFC 4648 Base32 alphabet (A-Z and digits 2-7).
+ * In particular, I, L, and O are valid letters; decimal 0, 1, 8 and 9
+ * are not valid Base32 digits. This expression checks length/alphabet,
+ * not the StrKey checksum, which is verified when a key is parsed.
  */
-export const STELLAR_PUBLIC_KEY_REGEX = /^G[A-HJ-NZ-Z0-9]{55}$/;
+export const STELLAR_PUBLIC_KEY_REGEX = /^G[A-Z2-7]{55}$/;
 
 /**
  * Assets the application supports for commitments. Kept in one place so the
@@ -27,7 +26,7 @@ export type SupportedAsset = (typeof SUPPORTED_ASSETS)[number];
  * @param label  optional human-readable field name used in the error message
  */
 export function validateSupportedAsset(asset: string, label = 'asset'): void {
-  if (!SUPPORTED_ASSETS[].includes(asset.toUpperCase() as SupportedAsset)) {
+  if (!SUPPORTED_ASSETS.includes(asset.toUpperCase() as SupportedAsset)) {
     throw new ValidationError(
       `${label} is not supported. Supported assets: ${SUPPORTED_ASSETS.join(', ')}.`,
       { asset },
