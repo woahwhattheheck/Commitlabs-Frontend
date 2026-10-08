@@ -83,15 +83,15 @@ const HealthMetricsValueHistoryChartComponent: React.FC<HealthMetricsValueHistor
 }) => {
   const reducedMotion = useReducedMotion();
   const safeData = useMemo(() => normalizeChartData(data), [data]);
-
-  const hasBenchmark = Boolean(safeBenchmarkData.length > 0);
+  const safeBenchmarkData = useMemo(() => normalizeChartData(benchmarkData), [benchmarkData]);
+  const hasBenchmark = safeBenchmarkData.length > 0;
 
   const benchmarkByDate = useMemo(() => {
-    if (!hasBenchmark || !benchmarkData) return {};
+    if (!hasBenchmark) return {};
     return Object.fromEntries(
-      normalizeChartData(benchmarkData).map((p) => [p.date, p.benchmarkValue]),
+      safeBenchmarkData.map((point) => [point.date, point.benchmarkValue]),
     );
-  }, [benchmarkData, hasBenchmark]);
+  }, [safeBenchmarkData, hasBenchmark]);
 
   const mergedData = useMemo(() => {
     if (!hasBenchmark) return safeData;
@@ -100,6 +100,9 @@ const HealthMetricsValueHistoryChartComponent: React.FC<HealthMetricsValueHistor
       benchmarkValue: benchmarkByDate[point.date] ?? null,
     }));
   }, [safeData, hasBenchmark, benchmarkByDate]);
+
+  // Render the joined series, not raw data, and cap the SVG point count.
+  const boundedData = useMemo(() => downsampleSeries(mergedData), [mergedData]);
 
   const yTickFormatter = useCallback((value: number) => formatLocaleNumber(value), []);
 
