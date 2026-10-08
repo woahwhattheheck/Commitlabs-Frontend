@@ -2,8 +2,6 @@
 
 import { useId } from 'react';
 import styles from './VolatilityExposureMeter.module.css';
-import { useReducedMotion } from '@/lib/a11y/useReducedMotion';
-import styles from './VolatilityExposureMeter.module.css';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -83,7 +81,9 @@ export function getExposureLevel(percent: number): 'low' | 'medium' | 'high' {
 
 export interface VolatilityExposureMeterProps {
   /** Current exposure as a percentage (0–100). Clamped when rendering. */
-  valuePercent: number;
+  valuePercent?: number;
+  /** True when the exposure cannot be measured, rather than being zero. */
+  insufficientData?: boolean;
   /** Optional short description of what the exposure means. */
   description?: string;
   /**
@@ -97,20 +97,23 @@ export interface VolatilityExposureMeterProps {
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function VolatilityExposureMeter({
-  valuePercent = 0,
-  insufficientData = false,
+  valuePercent,
+  insufficientData = valuePercent === undefined,
   description,
   riskProfileId,
 }: VolatilityExposureMeterProps) {
   const titleId = useId();
   const descId = useId();
 
-  const percent = clamp(valuePercent);
+  const isUnavailable = insufficientData || typeof valuePercent !== 'number' || !Number.isFinite(valuePercent);
+  const percent = clamp(typeof valuePercent === 'number' && Number.isFinite(valuePercent) ? valuePercent : 0);
   const zone = getThresholdZone(percent);
   const level = getExposureLevel(percent);
   const riskProfileLabel = riskProfileId ? RISK_PROFILE_LABELS[riskProfileId] : undefined;
 
-  const ariaValueText = `${percent} percent, ${zone.label.toLowerCase()} zone — ${zone.annotation}`;
+  const ariaValueText = isUnavailable
+    ? 'Volatility exposure data unavailable'
+    : `${percent} percent, ${zone.label.toLowerCase()} zone — ${zone.annotation}`;
 
   return (
     <section
@@ -131,7 +134,7 @@ export default function VolatilityExposureMeter({
           )}
         </div>
         <span className={styles.percentLabel} aria-hidden="true">
-          {Math.round(percent)}%
+          {isUnavailable ? 'N/A' : `${Math.round(percent)}%`}
         </span>
       </div>
 
@@ -139,10 +142,10 @@ export default function VolatilityExposureMeter({
       <div
         className={styles.meterContainer}
         role="meter"
-        aria-valuenow={insufficientData ? undefined : percent}
+        aria-valuenow={isUnavailable ? undefined : percent}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={`Volatility exposure: ${percent}%, ${zone.label.toLowerCase()} range.`}
+        aria-label={isUnavailable ? 'Volatility exposure data unavailable' : `Volatility exposure: ${percent}%, ${zone.label.toLowerCase()} range.`}
         aria-valuetext={ariaValueText}
       >
         {/* Background zone bands */}
@@ -168,7 +171,7 @@ export default function VolatilityExposureMeter({
       {/* ── Zone labels row ─────────────────────────────────────── */}
       <div className={styles.labelsRow} role="list" aria-label="Exposure threshold zones">
         {THRESHOLD_ZONES.map((z) => {
-          const isActive = z.id === zone.id;
+          const isActive = !isUnavailable && z.id === zone.id;
           return (
             <span
               key={z.id}
@@ -186,11 +189,11 @@ export default function VolatilityExposureMeter({
       {/* ── Active zone annotation (always visible text) ─────────── */}
       <div className={styles.annotationBox} role="status" aria-live="polite" aria-atomic="true">
         <span className={styles.annotationIcon} aria-hidden="true">
-          {zone.id === 'safe' && '\u2705'}
-          {zone.id === 'caution' && '\u26A0\uFE0F'}
-          {zone.id === 'danger' && '\u274C'}
+          {!isUnavailable && zone.id === 'safe' && '\u2705'}
+          {!isUnavailable && zone.id === 'caution' && '\u26A0\uFE0F'}
+          {!isUnavailable && zone.id === 'danger' && '\u274C'}
         </span>
-        <span className={styles.annotationText}>{zone.annotation}</span>
+        <span className={styles.annotationText}>{isUnavailable ? 'Exposure data is unavailable; risk zone cannot be determined.' : zone.annotation}</span>
         <span
           className={styles.tooltipTrigger}
           tabIndex={0}

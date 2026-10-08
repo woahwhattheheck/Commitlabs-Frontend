@@ -123,7 +123,9 @@ const HealthMetricsFeeGenerationChartComponent: React.FC<HealthMetricsFeeGenerat
       {exposure && (
         <div className="mt-4">
           <VolatilityExposureMeter
-            valuePercent={exposure.exposurePercent ?? 0}
+            {...(typeof exposure.exposurePercent === 'number' && Number.isFinite(exposure.exposurePercent)
+              ? { valuePercent: exposure.exposurePercent }
+              : { insufficientData: true })}
             description="Current exposure to volatile assets based on allocation and market conditions."
           />
         </div>

@@ -161,7 +161,9 @@ const HealthMetricsDrawdownChartComponent: React.FC<HealthMetricsDrawdownChartPr
       {showMeter && (
         <div className="mt-4">
           <VolatilityExposureMeter
-            valuePercent={meterPercent}
+            {...(typeof meterPercent === 'number' && Number.isFinite(meterPercent)
+              ? { valuePercent: meterPercent }
+              : { insufficientData: true })}
             description="Current exposure to volatile assets based on allocation and market conditions."
           />
         </div>
