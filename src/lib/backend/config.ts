@@ -388,10 +388,12 @@ function isRiskProfile(value: unknown): value is RiskProfile {
     typeof value.maxLossBps === 'number' &&
     Number.isInteger(value.maxLossBps) &&
     value.maxLossBps >= 0 &&
+    value.maxLossBps <= 10_000 &&
     (value.lockDurationDays === undefined ||
       (typeof value.lockDurationDays === 'number' &&
         Number.isInteger(value.lockDurationDays) &&
-        value.lockDurationDays > 0))
+        value.lockDurationDays >= PARAMETER_BOUNDS.durationDays.min &&
+        value.lockDurationDays <= PARAMETER_BOUNDS.durationDays.max))
   );
 }
 
