@@ -134,6 +134,17 @@ describe('VolatilityExposureMeter (component)', () => {
     expect(screen.getByText('42%')).toBeTruthy();
   });
 
+  it('does not render a stale fill when exposure is explicitly unavailable', () => {
+    const { container } = renderMeter({ valuePercent: 88, insufficientData: true });
+    const meter = container.querySelector('[role="meter"]');
+    const fill = meter?.querySelector(':scope > [aria-hidden="true"][style]');
+
+    expect(screen.getByText('N/A')).toBeTruthy();
+    expect(meter?.getAttribute('aria-valuenow')).toBeNull();
+    expect(fill?.getAttribute('style')).toContain('width: 0%');
+    expect(container.querySelector('[aria-current="true"]')).toBeNull();
+  });
+
   it('clamps percentage in the display', () => {
     renderMeter({ valuePercent: 999 });
     expect(screen.getByText('100%')).toBeTruthy();
