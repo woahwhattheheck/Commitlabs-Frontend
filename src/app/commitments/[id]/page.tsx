@@ -25,6 +25,14 @@ import { RecentlyViewedCommitmentsRail } from '@/components/RecentlyViewedCommit
 import { useRegisterCommands } from '@/components/CommandPalette';
 import { buildCommitmentScopedCommands } from '@/components/CommandPalette/scopedActions';
 import { useWallet } from '@/hooks/useWallet';
+import {
+  deriveOwnership,
+  isAuthorized,
+  isEligibleForEarlyExit,
+  isKnownStatusValue,
+  isValidCommitmentId,
+  ownershipDisabledReason,
+} from './authorization';
 
 // ---------------------------------------------------------------------------
 // Bounds & constants
@@ -279,6 +287,7 @@ function CommitmentDetailPageContent({
 
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [earlyExitModalOpen, setEarlyExitModalOpen] = useState(false);
+  const [earlyExitAcknowledged, setEarlyExitAcknowledged] = useState(false);
   const [disputeModalOpen, setDisputeModalOpen] = useState(false);
 
   // Reentrancy guard: prevents a double-click / rapid repeat confirm from
@@ -364,7 +373,7 @@ function CommitmentDetailPageContent({
 
     // Debounce: prevent rapid successive dispute submissions
     if (now - statusTransitionRef.current < STATUS_TRANSITION_DEBOUNCE_MS) {
-      emitPageTelemetry('dispute_submit_debounced', { commitmentId: params.id });
+      emitPageTelemetry('dispute_submit_debounced', { commitmentId: routeParamId });
       return;
     }
     statusTransitionRef.current = now;
@@ -379,20 +388,46 @@ function CommitmentDetailPageContent({
     setDisputeModalOpen(false);
 
     emitPageTelemetry('dispute_submitted', {
-      commitmentId: params.id,
+      commitmentId: routeParamId,
       newStatus: 'Disputed',
     });
-  }, [params.id]);
+  }, [routeParamId]);
 
   const handleEarlyExit = useCallback(() => {
-    emitPageTelemetry('early_exit_modal_open', { commitmentId: params.id });
+    // Scoped commands may invoke this handler too: recheck authorization here.
+    if (!canEarlyExit) {
+      showError({
+        title: 'Early exit unavailable',
+        description: earlyExitDisabledReason ?? 'This commitment is not eligible for early exit.',
+      });
+      return;
+    }
+    setEarlyExitAcknowledged(false);
+    emitPageTelemetry('early_exit_modal_open', { commitmentId: routeParamId });
     setEarlyExitModalOpen(true);
-  }, [params.id]);
+  }, [canEarlyExit, earlyExitDisabledReason, routeParamId, showError]);
+
+  const handleConfirmEarlyExit = useCallback(() => {
+    if (!canEarlyExit || !earlyExitAcknowledged || actionInFlightRef.current) return;
+    actionInFlightRef.current = true;
+    try {
+      // The supplied amounts are placeholders. Never submit or imply an
+      // irreversible transaction until a verified backend action is wired.
+      showError({
+        title: 'Early exit not available',
+        description: 'This action is not live yet. No transaction was submitted.',
+      });
+      setEarlyExitModalOpen(false);
+      setEarlyExitAcknowledged(false);
+    } finally {
+      actionInFlightRef.current = false;
+    }
+  }, [canEarlyExit, earlyExitAcknowledged, showError]);
 
   const handleSettle = useCallback(() => {
-    emitPageTelemetry('settle_attempt', { commitmentId: params.id, available: false });
+    emitPageTelemetry('settle_attempt', { commitmentId: routeParamId, available: false });
     showSuccess({ title: 'Coming Soon', description: 'Settlement is not yet available.' });
-  }, [showSuccess, params.id]);
+  }, [showSuccess, routeParamId]);
 
   const scopedCommands = useMemo(
     () =>
@@ -452,7 +487,7 @@ function CommitmentDetailPageContent({
                     emitPageTelemetry('attestation_selected', { attestationId: id })
                   }
                   onViewAll={() =>
-                    emitPageTelemetry('view_all_attestations', { commitmentId: params.id })
+                    emitPageTelemetry('view_all_attestations', { commitmentId: routeParamId })
                   }
                 />
               </div>
@@ -512,9 +547,12 @@ function CommitmentDetailPageContent({
             penaltyPercent={earlyExitPenaltyLabel}
             penaltyAmount="1,500 XLM"
             netReceiveAmount="48,500 XLM"
-            hasAcknowledged={false}
-            onChangeAcknowledged={() => {}}
-            onCancel={() => setEarlyExitModalOpen(false)}
+            hasAcknowledged={earlyExitAcknowledged}
+            onChangeAcknowledged={() => setEarlyExitAcknowledged((current) => !current)}
+            onCancel={() => {
+              setEarlyExitAcknowledged(false);
+              setEarlyExitModalOpen(false);
+            }}
             onConfirm={handleConfirmEarlyExit}
           />
         )}
@@ -588,6 +626,10 @@ function CommitmentDetailActionsUsingContext({
   onReportIssue: () => void;
   onSettle?: (() => void) | undefined;
   commitmentId?: string | undefined;
+  canEarlyExit: boolean;
+  earlyExitDisabledReason?: string | undefined;
+  settleDisabledReason?: string | undefined;
+  reportIssueDisabledReason?: string | undefined;
 }) {
   const { status } = useCommitmentStatus();
   const previewRefreshTrigger = status
@@ -597,6 +639,9 @@ function CommitmentDetailActionsUsingContext({
   return (
     <CommitmentDetailActions
       canEarlyExit={canEarlyExit}
+      {...(earlyExitDisabledReason !== undefined ? { earlyExitDisabledReason } : {})}
+      {...(settleDisabledReason !== undefined ? { settleDisabledReason } : {})}
+      {...(reportIssueDisabledReason !== undefined ? { reportIssueDisabledReason } : {})}
       onEarlyExit={onEarlyExit}
       onViewAttestations={onViewAttestations}
       onExportData={onExportData}
