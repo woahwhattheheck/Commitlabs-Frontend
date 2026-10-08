@@ -97,19 +97,17 @@ export const MarketplaceGrid = memo(function MarketplaceGrid({
   const { listings, isLoading, hasMore, loadMore } = usePaginatedListings(queryParams, 9, !!items);
   const rawItems = items ?? listings;
 
-  // Resolve the listing lazily on click so every card receives the same stable
-  // callback reference across grid re-renders while preserving the public
-  // MarketplaceGrid callback contract.
-  const safeOnCompareToggle = useCallback(
-    (id: string) => {
-      if (typeof onCompareToggle !== 'function') return;
-      const listing = rawItems.find((item) => item.id === id);
-      if (listing) {
-        return onCompareToggle(listing);
-      }
-    },
-    [onCompareToggle, rawItems],
-  );
+  // Keep card handlers stable even when a parent passes a newly allocated
+  // items array or onCompareToggle function during an unrelated grid render.
+  // Resolve the current listing only when the user clicks.
+  const latestCompare = useRef({ rawItems, onCompareToggle });
+  latestCompare.current = { rawItems, onCompareToggle };
+  const safeOnCompareToggle = useCallback((id: string) => {
+    const { rawItems: currentItems, onCompareToggle: toggle } = latestCompare.current;
+    if (typeof toggle !== 'function') return;
+    const listing = currentItems.find((item) => item.id === id);
+    if (listing) return toggle(listing);
+  }, []);
 
   const sanitizedItems = useMemo(() => {
     if (!Array.isArray(rawItems)) return [];
